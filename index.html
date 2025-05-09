@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8">
+  <title>Валидација колега</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .logo {
+      font-family: "Arial Black", sans-serif;
+      font-size: 56px;
+      background-color: white;
+      padding: 20px 40px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+
+    .logo span:first-child {
+      color: black;
+      text-decoration: underline;
+    }
+
+    .logo span:last-child {
+      color: red;
+      font-family: 'Stencil', sans-serif;
+    }
+
+    .content {
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    input[type="text"] {
+      padding: 18px 25px;
+      font-size: 24px;
+      width: 350px;
+      max-width: 90%;
+      border-radius: 15px;
+      border: 2px solid #ccc;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      font-weight: bold;
+      display: block;
+      margin: 0 auto;
+    }
+
+    #quiz, #result, #nextLevel {
+      display: none;
+    }
+
+    #nextLevel {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #nextLevel img {
+      width: 80vw;
+      max-width: 850px;
+      margin-top: 10px;
+    }
+
+    #nextLevel h1 {
+      font-size: 64px;
+      color: blue;
+      font-family: 'Arial Black', sans-serif;
+      animation: blink 1s step-start infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    button {
+      margin: 10px;
+      padding: 14px 32px;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 12px;
+      border: none;
+      background-color: #e0e0e0;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #ccc;
+    }
+
+    .green-page {
+      background-color: green;
+      color: white;
+    }
+
+    .red-page {
+      background-color: red;
+      color: white;
+    }
+
+    footer {
+      position: fixed;
+      bottom: 15px;
+      right: 20px;
+      text-align: right;
+      font-size: 14px;
+      color: #555;
+      font-style: italic;
+      line-height: 1.4;
+      font-family: "Georgia", serif;
+      display: block;
+    }
+
+    #nextLevel + footer {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo" id="logo">
+    <span>CACI</span>
+    <span>3005</span>
+  </div>
+
+  <div class="content" id="form">
+    <input type="text" id="indeksInput" placeholder="Унесите број индекса" />
+  </div>
+
+  <div class="content" id="quiz">
+    <h2 id="questionTitle"></h2>
+    <div id="buttons"></div>
+  </div>
+
+  <div class="content" id="result">
+    <h1 id="resultMessage"></h1>
+    <button id="nextBtn" onclick="goNext()">Следећа контрола</button>
+  </div>
+
+  <div class="content" id="nextLevel">
+    <h1>Некст левл</h1>
+    <img src="sm.webp" alt="Слика">
+  </div>
+
+  <audio id="validanSound" src="validan.wav"></audio>
+  <audio id="nevalidanSound" src="nevalidan.wav"></audio>
+
+  <script>
+    let data = [];
+    let isLocked = false;
+    let phase = 1;
+    let currentPerson = {};
+    let usedFields = [];
+
+    // OVDE IZMENITE NAZIVE ADEKVATNO VAŠIM POLJIMA U .CSV FAJLU
+    const fieldLabels = {
+      srednje_ime: "Средње име",
+      opstina_rodjenja: "Општина рођења",
+      naziv_sr_skole: "Назив средње школе",
+      opstina_stanovanja: "Општина становања",
+      opstina_skole: "Општина средње школе"
+    };
+    // OVDE SE ZAVRŠAVAJU NAZIVI POLJA
+
+    fetch("kolege.csv")
+      .then(response => response.text())
+      .then(text => {
+        const rows = text.trim().split("\n");
+        const headers = rows[0].split(",").map(h => h.trim());
+
+        for (let i = 1; i < rows.length; i++) {
+          const obj = {};
+          const values = rows[i].split(",");
+          headers.forEach((h, j) => obj[h] = values[j]?.trim());
+          data.push(obj);
+        }
+      });
+
+    document.getElementById("indeksInput").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        const indeks = this.value.trim();
+        currentPerson = data.find(d => d.indeks === indeks);
+        if (!currentPerson) return alert("Индекс није пронађен!");
+        phase = 1;
+        usedFields = [];
+        startQuizRound();
+      }
+    });
+
+    function startQuizRound() {
+      const fieldOptions = Object.keys(currentPerson).filter(k => {
+        if (k === "indeks") return false;
+        if (usedFields.includes(k)) return false;
+        const value = currentPerson[k];
+        if (!value || value.trim() === "") return false;
+
+        const otherValues = data
+          .filter(d => d.indeks !== currentPerson.indeks && d[k] && d[k].trim() !== "")
+          .map(d => d[k]);
+
+        const uniqueWrongOptions = [...new Set(otherValues)];
+        return uniqueWrongOptions.length >= 3;
+      });
+
+      if (fieldOptions.length === 0) {
+        return alert("Нема довољно података за валидно питање.");
+      }
+
+      const field = fieldOptions[Math.floor(Math.random() * fieldOptions.length)];
+      usedFields.push(field);
+
+      const correctValue = currentPerson[field];
+
+      document.getElementById("form").style.display = "none";
+      document.getElementById("quiz").style.display = "block";
+      document.getElementById("questionTitle").textContent = fieldLabels[field] || field;
+
+      const wrongOptionsRaw = data
+        .filter(d => d.indeks !== currentPerson.indeks && d[field] && d[field].trim() !== "")
+        .map(d => d[field]);
+
+      const wrongOptions = sample([...new Set(wrongOptionsRaw)], 3);
+      const shuffled = shuffle([correctValue, ...wrongOptions]);
+
+      const buttonsContainer = document.getElementById("buttons");
+      buttonsContainer.innerHTML = "";
+      shuffled.forEach(value => {
+        const btn = document.createElement("button");
+        btn.textContent = value;
+        btn.onclick = () => handleAnswer(value === correctValue);
+        buttonsContainer.appendChild(btn);
+      });
+    }
+
+    function goNext() {
+      if (isLocked) return;
+      window.location.reload();
+    }
+
+    function handleAnswer(correct) {
+      if (document.body.classList.contains("red-page") || document.body.classList.contains("green-page")) {
+        return;
+      }
+
+      const nextBtn = document.getElementById("nextBtn");
+
+      if (!correct) {
+        document.body.className = "red-page";
+        document.getElementById("quiz").style.display = "none";
+        document.getElementById("result").style.display = "block";
+        document.getElementById("resultMessage").textContent = "ЋАЦИ!";
+        document.getElementById("nevalidanSound").play();
+        isLocked = true;
+        nextBtn.disabled = true;
+
+        setTimeout(() => {
+          isLocked = false;
+          nextBtn.disabled = false;
+        }, 7000);
+        return;
+      }
+
+      if (phase === 1) {
+        phase = 2;
+        document.getElementById("quiz").style.display = "none";
+        document.getElementById("logo").style.display = "none";
+        document.getElementById("nextLevel").style.display = "flex";
+        document.querySelector("footer").style.display = "none";
+        setTimeout(() => {
+          document.getElementById("nextLevel").style.display = "none";
+          document.getElementById("logo").style.display = "flex";
+          document.querySelector("footer").style.display = "block";
+          startQuizRound();
+        }, 2000);
+      } else {
+        document.body.className = "green-page";
+        document.getElementById("quiz").style.display = "none";
+        document.getElementById("result").style.display = "block";
+        document.getElementById("resultMessage").textContent = "ВАЛИДИРАН";
+        document.getElementById("validanSound").play();
+        isLocked = false;
+        nextBtn.disabled = false;
+      }
+    }
+
+    function sample(arr, n) {
+      const copy = [...arr];
+      const result = [];
+      while (result.length < n && copy.length > 0) {
+        const idx = Math.floor(Math.random() * copy.length);
+        result.push(copy.splice(idx, 1)[0]);
+      }
+      return result;
+    }
+
+    function shuffle(arr) {
+      return arr.map(v => ({ v, s: Math.random() }))
+                .sort((a, b) => a.s - b.s)
+                .map(({ v }) => v);
+    }
+  </script>
+
+  <footer>
+    <p>ЦЕНТАР ЗА ИНФОРМАЦИОНЕ И КОМУНИКАЦИОНЕ ТЕХНОЛОГИЈЕ</p>
+    <p>УНИВЕРЗИТЕТ У БЕОГРАДУ, МЕДИЦИНСКИ ФАКУЛТЕТ</p>
+  </footer>
+</body>
+</html>

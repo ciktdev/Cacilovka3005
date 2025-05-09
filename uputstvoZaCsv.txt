@@ -1,0 +1,12 @@
+CSV fajl je neophodan u sledećem formatu i sa sledećim zaglavljem:
+
+indeks,srednje_ime,opstina_rodjenja,naziv_sr_skole,opstina_stanovanja
+12345,Марко,Београд,Гимназија "Вук Караџић",Нови Београд
+12346,Петар,Ниш,Економска школа,Ниш
+12347,Ана,Нови Сад,Медицинска школа,Нови Сад
+12348,Ивана,Крагујевац,Техничка школа,Крагујевац
+...
+
+Važne napomene:
+CSV fajl mora biti sačuvan sa UTF-8 enkodingom.
+CSV fajl mora da se zove kolege.csv
